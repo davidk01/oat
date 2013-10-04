@@ -1,0 +1,65 @@
+defaults:
+  ssh-key-name: 'milo-qa'
+  pem-file: '/openstratus-keys/milo-qa.pem'
+  security-groups: 'default'
+
+bootstrap-sequence: 'boilerplate'
+  git: 'git://github.scm.corp.ebay.com/openstratus-bootstrap-scripts/boilerplate.git'
+
+bootstrap-sequence: 'hacks'
+  git: 'git://github.scm.corp.ebay.com/openstratus-bootstrap-scripts/demohacks.git'
+
+load-balancer: 'lb', 1 instance with 'emi-ubuntu-12.04.2-server-amd64-09272013'
+  vm-flavor: 'tiny'
+  bootstrap-sequence:
+    include: 'boilerplate'
+    git: 'git://github.scm.corp.ebay.com/openstratus-bootstrap-scripts/load-balancer-bootstrap.git'
+
+pool: 'miloapiv3', 2 instance with 'emi-ubuntu-12.04.2-server-amd64-09272013'
+  vm-flavor: 'tiny'
+  bootstrap-sequence:
+    include: 'boilerplate'
+    git: 'git://github.scm.corp.ebay.com/openstratus-bootstrap-scripts/noop-bootstrap.git'
+
+pool: 'miloapiv2', 2 instance with 'emi-ubuntu-12.04.2-server-amd64-09272013'
+  vm-flavor: 'tiny'
+  bootstrap-sequence:
+    include: 'boilerplate'
+    git: 'git://github.scm.corp.ebay.com/openstratus-bootstrap-scripts/noop-bootstrap.git'
+
+pool: 'milortpal', 1 instance with 'emi-ubuntu-12.04.2-server-amd64-09272013'
+  vm-flavor: 'tiny'
+  bootstrap-sequence:
+    include: 'boilerplate'
+    git: 'git://github.scm.corp.ebay.com/openstratus-bootstrap-scripts/noop-bootstrap.git'
+
+pool: 'searchproxy', 1 instance with 'emi-ubuntu-12.04.2-server-amd64-09272013'
+  vm-flavor: 'tiny'
+  bootstrap-sequence:
+    include: 'boilerplate'
+    git: 'git://github.scm.corp.ebay.com/openstratus-bootstrap-scripts/noop-bootstrap.git'
+
+pool: 'availabilityservice', 1 instance with 'emi-ubuntu-12.04.2-server-amd64-09272013'
+  vm-flavor: 'tiny'
+  bootstrap-sequence:
+    include: 'boilerplate'
+    git: 'git://github.scm.corp.ebay.com/openstratus-bootstrap-scripts/noop-bootstrap.git'
+
+pool: 'redis', 2 instance with 'emi-ubuntu-12.04.2-server-amd64-09272013'
+  vm-flavor: 'tiny'
+  service-ports: 6379
+  bootstrap-sequence:
+    include: 'boilerplate'
+    git: 'git://github.scm.corp.ebay.com/openstratus-bootstrap-scripts/noop-bootstrap.git'
+
+box: 'A', 1 instance with 'emi-ubuntu-12.04.2-server-amd64-09272013'
+  vm-flavor: 'small'
+  bootstrap-sequence:
+    include: 'boilerplate'
+    git: 'git://github.scm.corp.ebay.com/openstratus-bootstrap-scripts/noop-bootstrap.git'
+
+box: 'B', 2 instances with 'emi-ubuntu-12.04.2-server-amd64-09272013'
+  vm-flavor: 'tiny'
+  bootstrap-sequence:
+    include: 'boilerplate'
+    git: 'git://github.scm.corp.ebay.com/openstratus-bootstrap-scripts/noop-bootstrap.git'

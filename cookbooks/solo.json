@@ -1,0 +1,6 @@
+{
+  "user": "vagrant",
+  "run_list": [
+    "recipe[api-toolkit-setup::default]"
+  ]
+}
