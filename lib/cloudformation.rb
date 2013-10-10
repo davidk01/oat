@@ -1,19 +1,5 @@
 require 'rubygems'
 require 'net/ssh'
-require 'erb'
-
-##
-# Used for generating haproxy configuration with erb.
-
-class HAProxyConfigurationContext
-
-  def initialize(pool_servers, http_pools, tcp_pools)
-    @pool_servers, @http_pools, @tcp_pools = pool_servers, http_pools, tcp_pools
-  end
-
-  def get_bindings; binding; end
-
-end
 
 ##
 # Container for bootstrapping a VM. Has things like flavor, image, OpenStack connection, general "pool data", etc.
@@ -41,7 +27,6 @@ class ServerComponent
 
   def initialize_image_and_flavor
     os = @os_connector.get_connection
-    puts "Image name = #{image_name}."
     @image = os.images.select {|im| im[:name] == image_name}.first
     raise StandardError, "Could not find image: image name = #{image_name}." if @image.nil?
     @flavor = os.flavors.select {|f| f[:name] == flavor_name}.first
@@ -187,10 +172,13 @@ class ServerComponent
   end
 
   ##
-  # Validate, create server, generate commands and run them.
+  # Provisioning needs to be a separate process because we sometimes want to provision
+  # boxes without actuall bootstrapping them.
 
-  def provision_and_bootstrap
-    initialize_image_and_flavor; validate; create_server
+  def provision
+    initialize_image_and_flavor
+    validate
+    create_server
     active_check_counter, ssh_test_counter, refresh_delay = 0, 0, 30
     while !server_active?
       if active_check_counter > 5
@@ -208,7 +196,14 @@ class ServerComponent
         ssh_test_counter += 1; sleep refresh_delay; retry
       end
     end
-    generate_commands.map {|c| puts "Running command #{c}."; system(c)}
+  end
+
+  ##
+  # Actually run all the ssh commands to bring up the box to working order.
+
+  def bootstrap
+    get_server
+    generate_commands.each {|c| puts "Running command #{c}."; system(c)}
   end
 
 end
@@ -220,42 +215,12 @@ end
 
 class HAProxyLoadBalancerComponent < ServerComponent
 
-  # sequence of actions should be: 
-  # 1) provision and bootstrap pools,
-  # 2) provision and bootstrap lb, 
-  # 3) generate and upload config,
-  # 4) generate and upload /etc/hosts entries
-  # in theory the only important part is generating and uploading the config to a functioning load balancer
-  # so if any of the previous steps fail then there should be recovery mechanisms in place.
-  
   ##
-  # Takes http and tcp components and transforms them into a format that can be used
-  # by the template to generate 'haproxy.cfg'. This needs to be cleanner because the separation
-  # between tcp and http pools is done implicitly by looking at what ports the pool wants to expose.
+  # Upload the haproxy configuration and restart haproxy.
 
-  def generate_config(http_components, tcp_components, erb_template_string)
-    pool_server_mapping = Hash.new {|h, k| h[k] = []}
-    http_components_partition = http_components.group_by {|p| p.pool_name}
-    tcp_components_partition = tcp_components.group_by {|p| p.pool_name}
-    http_pools = http_components_partition.keys
-    tcp_pools = tcp_components_partition.map do |k, v|
-      {'pool-name' => k, 'load-balance-ports' => v.first.load_balance_ports.value.map(&:value)}
-    end
-    (http_components + tcp_components).each do |component|
-      pool_server_mapping[component.pool_name] << [component.server_name, component.ip_address]
-    end
-    context = HAProxyConfigurationContext.new(pool_server_mapping,
-     http_pools, tcp_pools)
-    template = ERB.new(erb_template_string, nil, '>')
-    template.result(context.get_bindings)
-  end
-
-  ##
-  # Upload the configuration to each of the components. TODO: This also needs to happen for box components.
-
-  def upload_config(http_components, tcp_components, erb_template_string)
+  def upload_config(config)
     # write it to a file and then scp it over
-    open('haproxy.cfg', 'w') {|f| f.puts generate_config(http_components, tcp_components, erb_template_string)}
+    open('haproxy.cfg', 'w') {|f| f.puts config}
     scp_command = [
       "scp -i #{pem_file}",
       "-o UserKnownHostsFile=/dev/null",
@@ -270,8 +235,8 @@ class HAProxyLoadBalancerComponent < ServerComponent
   ##
   # Generate the 'vip' entries for /etc/hosts by following the pool naming convention.
 
-  def etc_hosts_entries(all_components)
-    @etc_hosts_entries ||= all_components.group_by {|c| c.pool_name}.keys.map do |pool_name|
+  def etc_hosts_entries(pool_names)
+    @etc_hosts_entries ||= pool_names.map do |pool_name|
       "#{ip_address} #{pool_name}.vip"
     end
   end
@@ -279,15 +244,19 @@ class HAProxyLoadBalancerComponent < ServerComponent
   ##
   # Upload /etc/hosts entries to all the components.
 
-  def upload_etc_hosts_entries(all_components)
-    puts "Appending .vip entries to /etc/hosts."
-    host_entries = etc_hosts_entries(all_components)
-    all_components.each do |server_component|
-      host_entries.each do |entry|
-        command = server_component.generate_ssh_command("echo #{entry} >> /etc/hosts")
-        puts "#{command}"; system(command)
-      end
-    end
+  def upload_etc_hosts_entries(components, pool_names)
+    host_entries = etc_hosts_entries(pool_names)
+    components.map do |server_component|
+      fork {
+        server_name = server_component.server_name
+        $stdout.reopen("#{server_name}.out", "a")
+        $stderr.reopen("#{server_name}.err", "a")
+        host_entries.each do |entry|
+          command = server_component.generate_ssh_command("echo #{entry} >> /etc/hosts")
+          puts "#{command}"; system(command)
+        end
+      }
+    end.each {|pid| Process.wait pid}
   end
 
 end

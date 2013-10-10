@@ -27,19 +27,19 @@ pool: 'miloapiv2', 2 instance with 'emi-ubuntu-12.04.2-server-amd64-09272013'
     include: 'boilerplate'
     git: 'git://github.scm.corp.ebay.com/openstratus-bootstrap-scripts/noop-bootstrap.git'
 
-pool: 'milortpal', 1 instance with 'emi-ubuntu-12.04.2-server-amd64-09272013'
+pool: 'milortpal', 2 instance with 'emi-ubuntu-12.04.2-server-amd64-09272013'
   vm-flavor: 'tiny'
   bootstrap-sequence:
     include: 'boilerplate'
     git: 'git://github.scm.corp.ebay.com/openstratus-bootstrap-scripts/noop-bootstrap.git'
 
-pool: 'searchproxy', 1 instance with 'emi-ubuntu-12.04.2-server-amd64-09272013'
+pool: 'searchproxy', 2 instance with 'emi-ubuntu-12.04.2-server-amd64-09272013'
   vm-flavor: 'tiny'
   bootstrap-sequence:
     include: 'boilerplate'
     git: 'git://github.scm.corp.ebay.com/openstratus-bootstrap-scripts/noop-bootstrap.git'
 
-pool: 'availabilityservice', 1 instance with 'emi-ubuntu-12.04.2-server-amd64-09272013'
+pool: 'availabilityservice', 2 instance with 'emi-ubuntu-12.04.2-server-amd64-09272013'
   vm-flavor: 'tiny'
   bootstrap-sequence:
     include: 'boilerplate'
@@ -52,8 +52,8 @@ pool: 'redis', 2 instance with 'emi-ubuntu-12.04.2-server-amd64-09272013'
     include: 'boilerplate'
     git: 'git://github.scm.corp.ebay.com/openstratus-bootstrap-scripts/noop-bootstrap.git'
 
-box: 'A', 1 instance with 'emi-ubuntu-12.04.2-server-amd64-09272013'
-  vm-flavor: 'small'
+box: 'A', 2 instance with 'emi-ubuntu-12.04.2-server-amd64-09272013'
+  vm-flavor: 'tiny'
   bootstrap-sequence:
     include: 'boilerplate'
     git: 'git://github.scm.corp.ebay.com/openstratus-bootstrap-scripts/noop-bootstrap.git'

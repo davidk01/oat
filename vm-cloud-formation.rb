@@ -26,18 +26,25 @@ lb_component = HAProxyCompiler.new(cloud_formation_config, OpenStackConnection.n
 box_components = BoxServersCompiler.new(cloud_formation_config, OpenStackConnection.new(ENV))
 all_server_components = components.all_components + [lb_component.load_balancer] + box_components.boxes
 
-err_puts "Running validators and forking bootstrapping processes."
+# have to be careful with the ordering
+# 1) provision
+# 2) provision and bootstrap haproxy
+# 3) upload /etc/hosts entries
+# 4) bootstrap provisioned boxes
+
+err_puts "Running validators and forking provisioning processes."
 all_server_components.map do |component|
   fork {
     server_name = component.server_name
-    $stdout.reopen("#{server_name}.out", "w")
-    $stderr.reopen("#{server_name}.err", "w")
-    component.provision_and_bootstrap
-    puts "#{server_name} done."
+    $stdout.reopen("#{server_name}.out", "a")
+    $stderr.reopen("#{server_name}.err", "a")
+    component.provision
+    puts "#{server_name} provisioned."
   }
 end.each {|pid| Process.wait pid}
 
 err_puts "Completing load balancer configuration."
+lb_component.load_balancer.bootstrap
 # populate server data because we forked and the parent can't see that data
 non_error_components = all_server_components.each do |c|
   begin
@@ -46,9 +53,21 @@ non_error_components = all_server_components.each do |c|
     err_puts "Something went wrong with #{c.server_name}. Check the logs."
   end
 end
-# finish the configuration
-lb_component.load_balancer.upload_config(components.http_server_components,
- components.tcp_server_components, File.read('./templates/haproxy.cfg.erb'))
-lb_component.load_balancer.upload_etc_hosts_entries(components.all_components + box_components.boxes)
+# finish the LB configuration
+lb_component.load_balancer.upload_config(components.generate_haproxy_config)
+err_puts "Appending .vip entries to /etc/hosts in forked processes."
+lb_component.load_balancer.upload_etc_hosts_entries(components.all_components + box_components.boxes, components.pool_mappings.keys)
+
+# start the bootstrapping processes for all the boxes
+err_puts "Starting bootstrapping processes."
+(components.all_components + box_components.boxes).map do |component|
+  fork {
+    server_name = component.server_name
+    $stdout.reopen("#{server_name}.out", "a")
+    $stderr.reopen("#{server_name}.err", "a")
+    component.bootstrap
+    puts "#{server_name} bootstrapped."
+  }
+end.each {|pid| Process.wait pid}
 
 err_puts "Done!"
