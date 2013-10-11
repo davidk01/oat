@@ -6,10 +6,8 @@ end
   require File.expand_path(req, File.dirname(__FILE__))
 end
 
-# output everything to STDERR
-def err_puts(string)
-  STDERR.puts string
-end
+old_stdout = $stdout.dup
+$stdout.reopen($stderr)
 
 # argument parsing
 $opts = Trollop::options do
@@ -17,8 +15,8 @@ $opts = Trollop::options do
     :type => :string, :required => true
 end
 
-err_puts "All operations are going to be performed on '#{ENV['OS_TENANT_NAME']}'."
-err_puts "Loading cloud formation file."
+puts "All operations are going to be performed on '#{ENV['OS_TENANT_NAME']}'."
+puts "Loading cloud formation file."
 cloud_formation_config = File.read($opts[:formation_description])
 
 components = PoolServersCompiler.new(cloud_formation_config, OpenStackConnection.new(ENV))
@@ -32,7 +30,7 @@ all_server_components = components.all_components + [lb_component.load_balancer]
 # 3) upload /etc/hosts entries
 # 4) bootstrap provisioned boxes
 
-err_puts "Running validators and forking provisioning processes."
+puts "Running validators and forking provisioning processes."
 all_server_components.map do |component|
   fork {
     server_name = component.server_name
@@ -43,23 +41,25 @@ all_server_components.map do |component|
   }
 end.each {|pid| Process.wait pid}
 
-err_puts "Completing load balancer configuration."
-lb_component.load_balancer.bootstrap
-# populate server data because we forked and the parent can't see that data
-non_error_components = all_server_components.each do |c|
+puts "Making sure all components were provisioned by OpenStratus (OpenStack)."
+all_server_components.each do |c|
   begin
     c.get_server
   rescue
-    err_puts "Something went wrong with #{c.server_name}. Check the logs."
+    puts "Something went wrong with #{c.server_name}. Check the logs and re-run vm-cloud-formation."
+    exit 1
   end
 end
+
+puts "Completing load balancer configuration."
+lb_component.load_balancer.bootstrap
 # finish the LB configuration
 lb_component.load_balancer.upload_config(components.generate_haproxy_config)
-err_puts "Appending .vip entries to /etc/hosts in forked processes."
+puts "Appending .vip entries to /etc/hosts in forked processes."
 lb_component.load_balancer.upload_etc_hosts_entries(components.all_components + box_components.boxes, components.pool_mappings.keys)
 
 # start the bootstrapping processes for all the boxes
-err_puts "Starting bootstrapping processes."
+puts "Starting bootstrapping processes."
 (components.all_components + box_components.boxes).map do |component|
   fork {
     server_name = component.server_name
@@ -70,4 +70,4 @@ err_puts "Starting bootstrapping processes."
   }
 end.each {|pid| Process.wait pid}
 
-err_puts "Done!"
+puts "Done!"
