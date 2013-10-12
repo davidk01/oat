@@ -37,9 +37,7 @@ class ServerComponent
   # pool data components
 
   def pool_name; @pool_name ||= @pool_data["pool-name"]; end
-  def http_pool?; @pool_data["load-balance-ports"].nil?; end
   def image_name; @image_name ||= @pool_data["image-name"]; end
-  def load_balance_ports; @load_balance_ports ||= @pool_data["load-balance-ports"]; end
   def bootstrap_urls; @bootstrap_urls ||= @pool_data["bootstrap-urls"]; end
   def security_groups; @security_groups ||= @pool_data["security-groups"]; end
   def flavor_name; @flavor_name ||= @pool_data["flavor-name"]; end
@@ -104,6 +102,9 @@ class ServerComponent
   # of the server happened in a separate process, e.g. by forking a process.
 
   def get_server
+    if @server
+      return @server
+    end
     os = @os_connector.get_connection
     server_data = os.servers.select {|s| s[:name] == server_name}.first
     @server = os.get_server(server_data[:id])
@@ -173,7 +174,7 @@ class ServerComponent
 
   ##
   # Provisioning needs to be a separate process because we sometimes want to provision
-  # boxes without actuall bootstrapping them.
+  # boxes without actually bootstrapping them.
 
   def provision
     initialize_image_and_flavor
@@ -199,7 +200,8 @@ class ServerComponent
   end
 
   ##
-  # Actually run all the ssh commands to bring up the box to working order.
+  # Actually run all the ssh commands to bring up the box to working order. Calls +get_server+ because
+  # we need the IP address of the box for running remote ssh commands.
 
   def bootstrap
     get_server

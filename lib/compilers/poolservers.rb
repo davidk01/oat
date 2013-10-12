@@ -67,9 +67,6 @@ class PoolServersCompiler < CompilerCommons
 
   end
 
-  ##
-  # 
-
   attr_reader :http_server_components, :tcp_server_components, :pool_mappings
 
   ##

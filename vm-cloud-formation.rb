@@ -41,10 +41,10 @@ all_server_components.map do |component|
   }
 end.each {|pid| Process.wait pid}
 
-puts "Making sure all components were provisioned by OpenStratus (OpenStack)."
+puts "Making sure all components were provisioned by OpenStratus (OpenStack) and testing ssh connection status."
 all_server_components.each do |c|
   begin
-    c.get_server
+    c.get_server; c.test_ssh_connection
   rescue
     puts "Something went wrong with #{c.server_name}. Check the logs and re-run vm-cloud-formation."
     exit 1
@@ -59,7 +59,7 @@ puts "Appending .vip entries to /etc/hosts in forked processes."
 lb_component.load_balancer.upload_etc_hosts_entries(components.all_components + box_components.boxes, components.pool_mappings.keys)
 
 # start the bootstrapping processes for all the boxes
-puts "Starting bootstrapping processes."
+puts "Starting bootstrapping processes and waiting for them to finish. Check the logs for progress."
 (components.all_components + box_components.boxes).map do |component|
   fork {
     server_name = component.server_name
@@ -69,5 +69,4 @@ puts "Starting bootstrapping processes."
     puts "#{server_name} bootstrapped."
   }
 end.each {|pid| Process.wait pid}
-
 puts "Done!"
