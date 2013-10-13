@@ -1,0 +1,30 @@
+defaults:
+  ssh-key-name: 'milo-qa'
+  pem-file: '/openstratus-keys/milo-qa.pem'
+  security-groups: 'default'
+
+bootstrap-sequence: 'boilerplate'
+  git: 'git://github.scm.corp.ebay.com/dkarapetyan/boilerplate-bootstrap.git'
+
+load-balancer: 'lb', 1 instance with 'emi-ubuntu-12.04.2-server-amd64-09272013'
+  vm-flavor: 'small'
+  bootstrap-sequence:
+    include: 'boilerplate'
+    git: 'git://github.scm.corp.ebay.com/openstratus-bootstrap-scripts/load-balancer-bootstrap.git'
+
+pool: 'date', 2 instances with 'emi-ubuntu-12.04.2-server-amd64-09272013'
+  vm-flavor: 'small'
+  bootstrap-sequence:
+    include: 'boilerplate'
+    git: 'git://github.scm.corp.ebay.com/dkarapetyan/jruby-date-demo.git'
+
+pool: 'time', 2 instances with 'emi-ubuntu-12.04.2-server-amd64-09272013'
+  vm-flavor: 'small'
+  bootstrap-sequence:
+    include: 'boilerplate'
+    git: 'git://github.scm.corp.ebay.com/dkarapetyan/jruby-time-demo.git'
+
+box: 'tester', 1 instance with 'emi-ubuntu-12.04.2-server-amd64-09272013'
+  vm-flavor: 'small'
+  bootstrap-sequence:
+    include: 'boilerplate'

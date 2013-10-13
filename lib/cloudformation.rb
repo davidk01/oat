@@ -135,6 +135,8 @@ class ServerComponent
       "ssh -i #{pem_file}",
       "-o UserKnownHostsFile=/dev/null",
       "-o StrictHostKeyChecking=no",
+      "-o BatchMode=yes",
+      "-o ConnectTimeout=10",
       "root@#{ip_address} -t"
     ].join(" ")
   end
@@ -205,7 +207,22 @@ class ServerComponent
 
   def bootstrap
     get_server
-    generate_commands.each {|c| puts "Running command #{c}."; system(c)}
+    sleep_time, retry_count = 1, 5
+    generate_commands.each do |c|
+      puts "Running command #{c}."
+      command_retries = 0
+      while !(status = system(c))
+        puts "Command failed: #{c}."
+        puts "Retrying in #{sleep_time} second(s): #{c}."
+        command_retries += 1
+        if command_retries > retry_count
+          raise StandardError, "Unable to execute command: #{c}."
+        end
+        sleep sleep_time
+        puts "Re-running previous command."
+      end
+      puts "Command successful: #{c}."
+    end
   end
 
 end

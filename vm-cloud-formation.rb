@@ -25,10 +25,9 @@ box_components = BoxServersCompiler.new(cloud_formation_config, OpenStackConnect
 all_server_components = components.all_components + [lb_component.load_balancer] + box_components.boxes
 
 # have to be careful with the ordering
-# 1) provision
-# 2) provision and bootstrap haproxy
-# 3) upload /etc/hosts entries
-# 4) bootstrap provisioned boxes
+# 1) provision all the components
+# 2) upload /etc/hosts entries
+# 3) bootstrap all the components including the load balancer
 
 puts "Running validators and forking provisioning processes."
 all_server_components.map do |component|
@@ -51,16 +50,12 @@ all_server_components.each do |c|
   end
 end
 
-puts "Completing load balancer configuration."
-lb_component.load_balancer.bootstrap
-# finish the LB configuration
-lb_component.load_balancer.upload_config(components.generate_haproxy_config)
 puts "Appending .vip entries to /etc/hosts in forked processes."
 lb_component.load_balancer.upload_etc_hosts_entries(components.all_components + box_components.boxes, components.pool_mappings.keys)
 
-# start the bootstrapping processes for all the boxes
+# start the bootstrapping processes for all the boxes including the load balancer
 puts "Starting bootstrapping processes and waiting for them to finish. Check the logs for progress."
-(components.all_components + box_components.boxes).map do |component|
+all_server_components.map do |component|
   fork {
     server_name = component.server_name
     $stdout.reopen("#{server_name}.out", "a")
@@ -69,4 +64,9 @@ puts "Starting bootstrapping processes and waiting for them to finish. Check the
     puts "#{server_name} bootstrapped."
   }
 end.each {|pid| Process.wait pid}
+
+puts "Uploading load balancer configuration."
+# finish the LB configuration
+lb_component.load_balancer.upload_config(components.generate_haproxy_config)
+
 puts "Done!"
