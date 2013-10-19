@@ -4,70 +4,56 @@ require File.expand_path('./compilercommons', File.dirname(__FILE__))
 class PoolServersCompiler < CompilerCommons
 
   
-  class TCPPool < Struct.new(:components, :ports, :pool_name)
+  class TCPPool < Struct.new(:components, :pool_definition)
 
-    def to_haproxy_stanza_data
-      ports.map do |port|
+    def to_haproxy_data
+      pool_name = pool_definition.vm_spec.name
+      pool_definition.services.map do |service_def|
+        port = service_def.port
+        healthcheck_endpoint = service_def.healthcheck_endpoint
+        healthcheck_port = service_def.healthcheck_port
         ["listen #{pool_name}-#{port}",
          "  mode tcp",
+         "  option httpchk GET #{healthcheck_endpoint}",
          "  balance leastconn",
          "  bind *:#{port}",
          "",
-         components.map {|c| "  server #{c.server_name} #{c.ip_address}:#{port}"}.join("\n")].join("\n")
+         components.map do |c| 
+           "  server #{c.server_name} #{c.ip_address}:#{port} check port #{healthcheck_port}"
+         end.join("\n")].join("\n")
       end.join("\n\n")
     end
 
   end
 
-  class HTTPPool < Struct.new(:components, :pool_name)
-
-    ##
-    # We also need to keep track haproxy ACL and backend definitions so those pieces
-    # should be encapsulated in an object that can then be pieced together into the final
-    # configuration.
-
-    class HAProxyHTTPStanzaComponents < Struct.new(:acl_backend_definition, :backend_servers_stanza); end
-
-    ##
-    # In turn the HTTP component definitions need to be indexed by port so we need to wrap it in another layer
-    # just for good measure. Might be going overboard with typing the data.
-
-    class HAProxyHTTPComponentsIndexedByPort < Struct.new(:port_80, :port_8080); end
-
-    ##
-    # Generate the pieces that will go in "frontend http-in-+port+ section.
-
-    def acl_backend_definition(port)
-      ["  acl #{pool_name}-#{port} hdr_beg(host) -i #{pool_name}.vip",
-       "  use_backend #{pool_name}-#{port} if #{pool_name}-#{port}"].join("\n")
-    end
-
-    ##
-    # Generate the actual "backend" section.
-
-    def backend_servers_stanza(port)
-      ["backend #{pool_name}-#{port}",
-       components.map {|c| "  server #{c.server_name} #{c.ip_address}:#{port}"}.join("\n")].join("\n")
-    end
-
-    ##
-    # We need the +ports+ for acl and backend definitions to be coupled so abstract it here.
-
-    def haproxy_definition_components(port)
-      return acl_backend_definition(port), backend_servers_stanza(port)
-    end
+  class HTTPPool < Struct.new(:components, :pool_definition)
 
     ##
     # Wrap everything and return it to be used in the actual haproxy configuration generation.
 
-    def to_haproxy_stanza_data
-      HAProxyHTTPComponentsIndexedByPort.new(HAProxyHTTPStanzaComponents.new(*haproxy_definition_components(80)),
-       HAProxyHTTPStanzaComponents.new(*haproxy_definition_components(8080)))
+    def to_haproxy_data
+      pool_name = pool_definition.vm_spec.name
+      pool_definition.services.map do |service_def|
+        service_port = service_def.port
+        healthcheck_endpoint = service_def.healthcheck_endpoint
+        healthcheck_port = service_def.healthcheck_port
+        acl = [
+         "  acl #{pool_name}-#{service_port} hdr_beg(host) -i #{pool_name}.vip",
+         "  use_backend #{pool_name}-#{service_port} if #{pool_name}-#{service_port}"].join("\n")
+        servers = components.map do |c|
+          "  server #{c.server_name} #{c.ip_address}:#{service_port} check port #{healthcheck_port}"
+        end.join("\n")
+        backend = [
+         "backend #{pool_name}-#{service_port}",
+         "  option httpchk GET #{healthcheck_endpoint}", 
+         servers].join("\n")
+        {:port => service_port, :acl => acl, :backend => backend}
+      end
     end
 
   end
 
-  attr_reader :http_server_components, :tcp_server_components, :pool_mappings
+  attr_reader :http_server_components, :tcp_server_components, :tcp_pool_mappings, :http_pool_mappings
 
   ##
   # Need the configuration string and OpenStack connection.
@@ -75,7 +61,8 @@ class PoolServersCompiler < CompilerCommons
   def initialize(dsl_string, os_connector)
     super(dsl_string)
     @os_connector = os_connector
-    @pool_mappings = Hash.new {|h, k| h[k] = []}
+    @tcp_pool_mappings = Hash.new {|h, k| h[k] = []}
+    @http_pool_mappings = Hash.new {|h, k| h[k] = []}
     initialize_components
   end
 
@@ -87,11 +74,8 @@ class PoolServersCompiler < CompilerCommons
   end
 
   ##
-  # Any pool block that does not expose ports is assumed to be an HTTP
-  # server component and the load balancer will automatically route :80, :8080
-  # to that component. This means any pool that does expose ports will get a TCP
-  # entry in HAProxy and will be load balanced based on exposed ports. This leads
-  # to potential load balancing conflicts. (TODO: Add conflict detection, box component initialization)
+  # Configuration format is now more explicit about pool types, service ports and healthcheck urls so
+  # there is less magic going on.
 
   def initialize_components
     if (@http_server_components && @tcp_server_components)
@@ -103,18 +87,16 @@ class PoolServersCompiler < CompilerCommons
     ssh_key_name, pem_file = defaults['ssh-key-name'], defaults['pem-file']
     ast.pools.value.each do |pool_def|
       vm_spec = pool_def.vm_spec
-      pool_data = component_data_hash(pool_def, security_groups)
-      pool_data['load-balance-ports'] = pool_def.ports
-      server_components = (1..vm_spec.count.value).map do |vm_index|
+      server_components = (1..vm_spec.count).map do |vm_index|
         server_component = ServerComponent.new("#{vm_spec.name}-#{vm_index}",
-         ssh_key_name, pem_file, @os_connector, pool_data)
+         ssh_key_name, pem_file, @os_connector, security_groups, pool_def)
       end
-      if pool_def.ports
+      if pool_def.type == "TCP"
         @tcp_server_components.concat(server_components)
-        @pool_mappings[vm_spec.name] = TCPPool.new(server_components, pool_def.ports.value.map(&:value), vm_spec.name)
+        @tcp_pool_mappings[vm_spec.name] = TCPPool.new(server_components, pool_def)
       else
         @http_server_components.concat(server_components)
-        @pool_mappings[vm_spec.name] = HTTPPool.new(server_components, vm_spec.name)
+        @http_pool_mappings[vm_spec.name] = HTTPPool.new(server_components, pool_def)
       end
     end
   end
@@ -126,15 +108,20 @@ class PoolServersCompiler < CompilerCommons
 
   def generate_haproxy_config
     all_components.each(&:ip_address)
-    tcp_pools, http_80_pools, http_8080_pools = [], [], []
-    pool_mappings.map do |pool_name, pool|
-      stanza_data = pool.to_haproxy_stanza_data
-      if TCPPool === pool
-        tcp_pools << stanza_data
-      else
-        http_80_pools << stanza_data.port_80; http_8080_pools << stanza_data.port_8080
-      end
-    end
+    grouped_http_data = @http_pool_mappings.map {|k, v| v.to_haproxy_data}.
+     flatten.group_by {|d| d[:port]}
+    # frontend http definitions with acls
+    frontend_defs = grouped_http_data.map do |port, haproxy_datas|
+      frontend_header = "frontend http-in-#{port}\n  bind *:#{port}\n\n"
+      acls = haproxy_datas.map {|port_acl_backend| port_acl_backend[:acl]}.join("\n")
+      frontend_header + acls
+    end.join("\n\n")
+    # backend http servers
+    http_backend_servers = grouped_http_data.map do |port, haproxy_datas|
+      haproxy_datas.map {|port_acl_backend| port_acl_backend[:backend]}.join("\n\n")
+    end.join("\n\n")
+    # tcp backend
+    tcp_backend = @tcp_pool_mappings.map {|k, v| v.to_haproxy_data}.join("\n\n")
     # lets generate some strings
     preamble = [
      'global',
@@ -154,24 +141,8 @@ class PoolServersCompiler < CompilerCommons
      '  stats realm Haproxy\ Statistics',
      '  stats uri /',
      ''].join("\n")
-     frontend_http_80_preamble = [
-      'frontend http-in-80',
-      '  bind *:80',
-      '',
-      *http_80_pools.map {|p| p.acl_backend_definition},
-      ''].join("\n")
-     frontend_http_8080_preamble = [
-      'frontend http-in-8080',
-      '  bind *:8080',
-      '',
-      *http_8080_pools.map {|c| c.acl_backend_definition},
-      ''].join("\n")
-     http_80_backend = http_80_pools.map {|c| c.backend_servers_stanza}.join("\n\n")
-     http_8080_backend = http_8080_pools.map {|c| c.backend_servers_stanza}.join("\n\n")
-     tcp_backend = tcp_pools.join("\n\n")
      # put it all together
-     [preamble, frontend_http_80_preamble, frontend_http_8080_preamble, http_80_backend,
-      http_8080_backend, tcp_backend].join("\n\n")
+     [preamble, frontend_defs, http_backend_servers, tcp_backend].join("\n\n")
   end
 
 end

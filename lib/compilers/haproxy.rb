@@ -2,6 +2,7 @@ require File.expand_path('./compilercommons', File.dirname(__FILE__))
 require File.expand_path('../cloudformation', File.dirname(__FILE__))
 
 class HAProxyCompiler < CompilerCommons
+
   attr_reader :load_balancer
 
   ##
@@ -18,17 +19,9 @@ class HAProxyCompiler < CompilerCommons
 
   def initialize_load_balancer
     component_def = ast.load_balancer
-    vm_spec = component_def.vm_spec
-    lb_data = {
-      'pool-name' => vm_spec.name,
-      'image-name' => vm_spec.image_name,
-      'bootstrap-urls' => git_urls(component_def.bootstrap_sequence),
-      'security-groups' => defaults_hash['security-groups'],
-      'flavor-name' => component_def.flavor
-    }
-    @load_balancer = HAProxyLoadBalancerComponent.new(vm_spec.name,
+    @load_balancer = HAProxyLoadBalancerComponent.new(component_def.vm_spec.name,
      defaults_hash['ssh-key-name'], defaults_hash['pem-file'],
-     @os_connector, lb_data)
+     @os_connector, defaults_hash['security-groups'], component_def)
   end
 
 end

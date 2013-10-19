@@ -9,20 +9,45 @@ bootstrap-sequence: 'boilerplate'
 load-balancer: 'lb', 1 instance with 'emi-ubuntu-12.04.2-server-amd64-09272013'
   vm-flavor: 'small'
   bootstrap-sequence:
-    include: 'boilerplate'
     git: 'git://github.scm.corp.ebay.com/openstratus-bootstrap-scripts/load-balancer-bootstrap.git'
 
-pool: 'date', 2 instances with 'emi-ubuntu-12.04.2-server-amd64-09272013'
+http-pool: 'date', 2 instances with 'emi-ubuntu-12.04.2-server-amd64-09272013'
   vm-flavor: 'small'
+  service:
+    port: 8080
+    healthcheck-endpoint: '/date'
+    healthcheck-port: 8080
   bootstrap-sequence:
     include: 'boilerplate'
     git: 'git://github.scm.corp.ebay.com/dkarapetyan/jruby-date-demo.git'
 
-pool: 'time', 2 instances with 'emi-ubuntu-12.04.2-server-amd64-09272013'
+http-pool: 'time', 2 instances with 'emi-ubuntu-12.04.2-server-amd64-09272013'
   vm-flavor: 'small'
+  service:
+    port: 8080
+    healthcheck-endpoint: '/time'
+    healthcheck-port: 8080
   bootstrap-sequence:
     include: 'boilerplate'
     git: 'git://github.scm.corp.ebay.com/dkarapetyan/jruby-time-demo.git'
+
+tcp-pool: 'test-tcp-pool', 2 instances with 'emi-ubuntu-12.04.2-server-amd64-09272013'
+  vm-flavor: 'tiny'
+  service:
+    port: 6379
+    healthcheck-endpoint: '/ok'
+    healthcheck-port: 8081
+  bootstrap-sequence:
+    git: 'git://github.scm.corp.ebay.com/openstratus-bootstrap-scripts/noop-bootstrap.git'
+
+tcp-pool: 'test-tcp-pool2', 2 instances with 'emi-ubuntu-12.04.2-server-amd64-09272013'
+  vm-flavor: 'tiny'
+  service:
+    port: 6380
+    healthcheck-endpoint: '/ok'
+    healthcheck-port: 8081
+  bootstrap-sequence:
+    git: 'git://github.scm.corp.ebay.com/openstratus-bootstrap-scripts/noop-bootstrap.git'
 
 box: 'tester', 1 instance with 'emi-ubuntu-12.04.2-server-amd64-09272013'
   vm-flavor: 'small'

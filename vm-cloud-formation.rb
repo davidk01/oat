@@ -44,18 +44,31 @@ puts "Making sure all components were provisioned by OpenStratus (OpenStack) and
 all_server_components.each do |c|
   begin
     c.get_server; c.test_ssh_connection
-  rescue
+  rescue Exception => e
     puts "Something went wrong with #{c.server_name}. Check the logs and re-run vm-cloud-formation."
+    puts e
     exit 1
   end
 end
 
 puts "Appending .vip entries to /etc/hosts in forked processes."
-lb_component.load_balancer.upload_etc_hosts_entries(components.all_components + box_components.boxes, components.pool_mappings.keys)
+puts "Pools: #{components.http_pool_mappings.merge(components.tcp_pool_mappings).keys.join(", ")}."
+lb_component.load_balancer.upload_etc_hosts_entries(components.all_components + box_components.boxes,
+ components.http_pool_mappings.merge(components.tcp_pool_mappings).keys)
+# load balancer bootstrapping should happen independently of all the other boxes
+lb_bootstrap_pid = fork {
+  server_name = lb_component.load_balancer.server_name
+  $stdout.reopen("#{server_name}.out", "a")
+  $stderr.reopen("#{server_name}.err", "a")
+  lb_component.load_balancer.bootstrap
+  puts "#{server_name} bootstrapped."
+  puts "Uploading load balancer config and restarting."
+  lb_component.load_balancer.upload_config(components.generate_haproxy_config)
+}
 
 # start the bootstrapping processes for all the boxes including the load balancer
 puts "Starting bootstrapping processes and waiting for them to finish. Check the logs for progress."
-all_server_components.map do |component|
+(components.all_components + box_components.boxes).map do |component|
   fork {
     server_name = component.server_name
     $stdout.reopen("#{server_name}.out", "a")
@@ -65,8 +78,6 @@ all_server_components.map do |component|
   }
 end.each {|pid| Process.wait pid}
 
-puts "Uploading load balancer configuration."
-# finish the LB configuration
-lb_component.load_balancer.upload_config(components.generate_haproxy_config)
-
+# wait for lb to finish
+Process.wait lb_bootstrap_pid
 puts "Done!"

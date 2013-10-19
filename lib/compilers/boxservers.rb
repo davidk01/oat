@@ -23,12 +23,10 @@ class BoxServersCompiler < CompilerCommons
       @boxes = []
     else
       @boxes = ast.boxes.value.map do |box_def|
-        pool_data = component_data_hash(box_def, defaults_hash['security-groups'])
-        vm_spec = box_def.vm_spec
-        box_components = (1..vm_spec.count.value).map do |vm_index|
-          box_component = ServerComponent.new("#{vm_spec.name}-#{vm_index}",
+        box_components = (1..box_def.vm_spec.count).map do |vm_index|
+          box_component = ServerComponent.new("#{box_def.vm_spec.name}-#{vm_index}",
            defaults_hash['ssh-key-name'], defaults_hash['pem-file'],
-           @os_connector, pool_data)
+           @os_connector, defaults_hash['security-groups'], box_def)
         end
       end.flatten
     end
