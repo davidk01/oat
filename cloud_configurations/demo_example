@@ -6,12 +6,12 @@ defaults:
 bootstrap-sequence: 'boilerplate'
   git: 'git://github.scm.corp.ebay.com/dkarapetyan/boilerplate-bootstrap.git'
 
-load-balancer: 'lb', 1 instance with 'emi-ubuntu-12.04.2-server-amd64-09272013'
+load-balancer: 'lb', 1 instance with 'emi-ubuntu-12.04.2-server-amd64-11122013'
   vm-flavor: 'small'
   bootstrap-sequence:
     git: 'git://github.scm.corp.ebay.com/openstratus-bootstrap-scripts/load-balancer-bootstrap.git'
 
-http-pool: 'date', 2 instances with 'emi-ubuntu-12.04.2-server-amd64-09272013'
+http-pool: 'date', 2 instances with 'emi-ubuntu-12.04.2-server-amd64-11122013'
   vm-flavor: 'small'
   service:
     port: 8080
@@ -21,7 +21,7 @@ http-pool: 'date', 2 instances with 'emi-ubuntu-12.04.2-server-amd64-09272013'
     include: 'boilerplate'
     git: 'git://github.scm.corp.ebay.com/dkarapetyan/jruby-date-demo.git'
 
-http-pool: 'time', 2 instances with 'emi-ubuntu-12.04.2-server-amd64-09272013'
+http-pool: 'time', 2 instances with 'emi-ubuntu-12.04.2-server-amd64-11122013'
   vm-flavor: 'small'
   service:
     port: 8080
@@ -31,7 +31,7 @@ http-pool: 'time', 2 instances with 'emi-ubuntu-12.04.2-server-amd64-09272013'
     include: 'boilerplate'
     git: 'git://github.scm.corp.ebay.com/dkarapetyan/jruby-time-demo.git'
 
-tcp-pool: 'test-tcp-pool', 2 instances with 'emi-ubuntu-12.04.2-server-amd64-09272013'
+tcp-pool: 'test-tcp-pool', 2 instances with 'emi-ubuntu-12.04.2-server-amd64-11122013'
   vm-flavor: 'tiny'
   service:
     port: 6379
@@ -40,7 +40,7 @@ tcp-pool: 'test-tcp-pool', 2 instances with 'emi-ubuntu-12.04.2-server-amd64-092
   bootstrap-sequence:
     git: 'git://github.scm.corp.ebay.com/openstratus-bootstrap-scripts/noop-bootstrap.git'
 
-tcp-pool: 'test-tcp-pool2', 2 instances with 'emi-ubuntu-12.04.2-server-amd64-09272013'
+tcp-pool: 'test-tcp-pool2', 2 instances with 'emi-ubuntu-12.04.2-server-amd64-11122013'
   vm-flavor: 'tiny'
   service:
     port: 6380
@@ -49,7 +49,7 @@ tcp-pool: 'test-tcp-pool2', 2 instances with 'emi-ubuntu-12.04.2-server-amd64-09
   bootstrap-sequence:
     git: 'git://github.scm.corp.ebay.com/openstratus-bootstrap-scripts/noop-bootstrap.git'
 
-box: 'tester', 1 instance with 'emi-ubuntu-12.04.2-server-amd64-09272013'
+box: 'tester', 1 instance with 'emi-ubuntu-12.04.2-server-amd64-11122013'
   vm-flavor: 'small'
   bootstrap-sequence:
     include: 'boilerplate'
