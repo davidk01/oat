@@ -1,5 +1,7 @@
 class CloudFormation
 
+  #TODO: Instead of bare hash maps wrap up the pool definitions with a class
+
   ##
   # Simple struct for holding git URLs.
 
@@ -14,6 +16,15 @@ class CloudFormation
   # will work.
 
   class ServiceDefinition < Struct.new(:service_port, :healthcheck_endpoint, :healthcheck_port)
+    def service?
+      true
+    end
+  end
+
+  ##
+  # We only ever have one load balancer so encapsulate it.
+  
+  class LoadBalancer < Struct.new(:name, :options)
   end
 
   ##
@@ -34,14 +45,13 @@ class CloudFormation
 
   def initialize
     @defaults = {}
-    @bootstrap_sequences = {}
     @http_pools = {}
     @tcp_pools = {}
     @boxes = []
   end
 
   ##
-  # TODO: perform better validation on the values as well.
+  # TODO: Not sure if key name and security groups validation should happen here or elsewhere.
 
   def defaults(opts = {})
     required_keys = [:ssh_key_name, :pem_file, :security_groups]
@@ -50,24 +60,27 @@ class CloudFormation
         raise StandardError, ":#{k} is a required key."
       end
     end
+    if !File.exists?(opts[:pem_file])
+      raise StandardError, "Specified .pem file does not exist."
+    end
+    if opts[:security_groups].empty?
+      raise StandardError, "Security groups must be a non-empty array."
+    end
     @defaults = opts
   end
+
+  ##
+  # Provide convenient access to +GitUrl.new+.
 
   def git(url)
     GitUrl.new(url)
   end
 
   ##
-  # Create a named bootstrap sequence that can be referenced from various components.
+  # Convenient access to +ServiceDefinition.new+.
 
-  def bootstrap_sequence(name, *sequence)
-    if @bootstrap_sequences[name]
-      raise StanardError, "Sequence by that name already exists: #{name}."
-    end
-    if !sequence.all? {|b| b.git_url?}
-      raise StandardError, "Bootstrap sequence must be git:// URL: #{name}."
-    end
-    @bootstrap_sequences[name] = sequence
+  def service(port, healthcheck_endpoint, healthcheck_port)
+    ServiceDefinition.new(port, healthcheck_endpoint, healthcheck_port)
   end
 
   ##
@@ -82,8 +95,17 @@ class CloudFormation
   end
 
   ##
+  # Load balancer configuration is a little special becaue of configuration uploading but
+  # otherwise it's just another pool definition.
+
+  def load_balancer(name, opts = {})
+    required_keys = [:count, :image, :vm_flavor, :bootstrap_sequence]
+    key_validation(required_keys, opts)
+    @load_balancer = LoadBalancer.new(name, opts)
+  end
+
+  ##
   # Create an http pool definition. TODO: Do better validation here as well.
-  # TODO: Figure out what the best way is to represent service definitions.
 
   def http_pool(name, opts = {})
     if @http_pools[name]
@@ -91,6 +113,7 @@ class CloudFormation
     end
     required_keys = [:count, :image, :vm_flavor, :bootstrap_sequence, :services]
     key_validation(required_keys, opts)
+    (services = opts[:services]).any? && services.all? {|s| s.service?}
     @http_pools[name] = opts
   end
 
@@ -103,7 +126,20 @@ class CloudFormation
     end
     required_keys = [:count, :image, :vm_flavor, :bootstrap_sequence, :services]
     key_validation(required_keys, opts)
+    (services = opts[:services]).any? && services.all? {|s| s.service?}
     @tcp_pools[name] = opts
+  end
+
+  ##
+  # We need standalone boxes as well.
+
+  def box(name, opts = {})
+    if @boxes[name]
+      raise StandardError, "Box by that name already exists: #{name}."
+    end
+    required_keys = [:count, :image, :vm_flavor, :bootstrap_sequence]
+    key_validation(required_keys, opts)
+    @boxes[name] = opts
   end
 
 end
