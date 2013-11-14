@@ -1,4 +1,6 @@
-CloudFormation.formation do
+require 'oat'
+
+config = Oat::formation do
 
   ubuntu = 'emi-ubuntu-12.04.2-server-amd64-11122013'
   boilerplate = [
@@ -9,7 +11,7 @@ CloudFormation.formation do
    :pem_file => '/openstratus-keys/milo-qa.pem',
    :security_groups => ['defaults']
 
-  load_balancer 'lb', :count => 1, :image => image, :vm_flavor => 'small', 
+  load_balancer 'lb', :count => 1, :image => ubuntu, :vm_flavor => 'small', 
    :bootstrap_sequence => [
     git('git://github.scm.corp.ebay.com/openstratus-bootstrap-scripts/load-balancer-bootstrap.git')
    ]
@@ -34,3 +36,5 @@ CloudFormation.formation do
    :bootstrap_sequence => boilerplate
 
 end
+
+config.run

@@ -16,7 +16,7 @@ class HAProxyServer
 
   def initialize_load_balancer
     component_def = @config.load_balancer
-    defaults_hash = @config.defaults
+    defaults_hash = @config.defaults_hash
     @load_balancer = HAProxyLoadBalancerComponent.new(component_def[:name],
      defaults_hash[:ssh_key_name], defaults_hash[:pem_file],
      @os_connector, defaults_hash[:security_groups], component_def)

@@ -78,7 +78,7 @@ class PoolServers
       raise StandardError, "Components already initialized."
     end
     @http_server_components, @tcp_server_components = [], []
-    defaults = @config.defaults
+    defaults = @config.defaults_hash
     security_groups = defaults[:security_groups]
     ssh_key_name, pem_file = defaults[:ssh_key_name], defaults[:pem_file]
     @http_server_components = @config.http_pools.map do |name, pool_options|

@@ -19,7 +19,7 @@ class BoxServers
     if @config.boxes.empty?
       @boxes = []
     else
-      defaults_hash = @config.defaults
+      defaults_hash = @config.defaults_hash
       @boxes = @config.boxes.map do |box_def|
         box_components = (1..box_def[:count]).map do |vm_index|
           box_component = ServerComponent.new("#{box_def[:name]}-#{vm_index}",

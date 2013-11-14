@@ -37,6 +37,7 @@ class CloudFormation
   def run
     # TODO: Actually do this
     # PoolServers, HAProxy, BoxServers
+    require 'pry'; binding.pry
     pool_servers = PoolServers.new(self, OpenStackConnection.new(ENV))
     lb = HAProxyServer.new(self, OpenStackConnection.new(ENV))
     # TODO: Migrate box server compiler stuff as well
@@ -53,7 +54,14 @@ class CloudFormation
     @defaults = {}
     @http_pools = {}
     @tcp_pools = {}
-    @boxes = []
+    @boxes = {}
+  end
+
+  ##
+  # Need an accessor method that does not clash with the setter.
+
+  def defaults_hash
+    @defaults
   end
 
   ##
@@ -61,11 +69,7 @@ class CloudFormation
 
   def defaults(opts = {})
     required_keys = [:ssh_key_name, :pem_file, :security_groups]
-    required_keys.each do |k|
-      if opts[k].nil?
-        raise StandardError, ":#{k} is a required key."
-      end
-    end
+    key_validation(required_keys, opts)
     if !File.exists?(opts[:pem_file])
       raise StandardError, "Specified .pem file does not exist."
     end
