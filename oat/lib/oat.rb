@@ -4,6 +4,7 @@ require "oat/oatdsl"
 require "oat/cloudformation"
 require "oat/poolservers"
 require "oat/haproxyserver"
+require "oat/boxservers"
 
 module Oat
 

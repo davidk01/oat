@@ -1,7 +1,5 @@
 class CloudFormation
 
-  #TODO: Instead of bare hash maps wrap up the pool definitions with a class
-
   ##
   # Simple struct for holding git URLs.
 
@@ -41,6 +39,7 @@ class CloudFormation
     # PoolServers, HAProxy, BoxServers
     pool_servers = PoolServers.new(self, OpenStackConnection.new(ENV))
     lb = HAProxyServer.new(self, OpenStackConnection.new(ENV))
+    # TODO: Migrate box server compiler stuff as well
     box_servers = BoxServers.new(self, OpenStackConnection.new(ENV))
   end
 
