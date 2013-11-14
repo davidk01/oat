@@ -28,6 +28,18 @@ class CloudFormation
   end
 
   ##
+  # TODO: figure out a nice way to reuse the old infrastructure if possible.
+
+  class HTTPPool
+  end
+
+  ##
+  # TODO: figure out a nice way to reuse the old infrastructure if possible.
+
+  class TCPPool
+  end
+
+  ##
   # Do everything with formation block.
 
   def self.formation(&blk)
@@ -37,6 +49,13 @@ class CloudFormation
     end
     instance.define_formation
     instance
+  end
+
+  ##
+  # Do some validation and start making the API calls for setting everything up.
+
+  def run
+    # TODO: Actually do this
   end
 
   ##
@@ -95,7 +114,7 @@ class CloudFormation
   end
 
   ##
-  # Load balancer configuration is a little special becaue of configuration uploading but
+  # Load balancer configuration is a little special because of configuration uploading but
   # otherwise it's just another pool definition.
 
   def load_balancer(name, opts = {})

@@ -22,24 +22,6 @@ class CloudFormation
   end
 
   ##
-  # We only ever have one load balancer so encapsulate it.
-  
-  class LoadBalancer < Struct.new(:name, :options)
-  end
-
-  ##
-  # TODO: figure out a nice way to reuse the old infrastructure if possible.
-
-  class HTTPPool
-  end
-
-  ##
-  # TODO: figure out a nice way to reuse the old infrastructure if possible.
-
-  class TCPPool
-  end
-
-  ##
   # Do everything with formation block.
 
   def self.formation(&blk)
@@ -56,7 +38,13 @@ class CloudFormation
 
   def run
     # TODO: Actually do this
+    # PoolServers, HAProxy, BoxServers
+    pool_servers = PoolServers.new(self, OpenStackConnection.new(ENV))
+    lb = HAProxyServer.new(self, OpenStackConnection.new(ENV))
+    box_servers = BoxServers.new(self, OpenStackConnection.new(ENV))
   end
+
+  attr_reader :defaults, :http_pools, :tcp_pools
 
   ##
   # Should be pretty self-explanatory. Just initialize some variables to store
@@ -120,7 +108,8 @@ class CloudFormation
   def load_balancer(name, opts = {})
     required_keys = [:count, :image, :vm_flavor, :bootstrap_sequence]
     key_validation(required_keys, opts)
-    @load_balancer = LoadBalancer.new(name, opts)
+    opts[:name] = name
+    @load_balancer = opts
   end
 
   ##
@@ -133,6 +122,7 @@ class CloudFormation
     required_keys = [:count, :image, :vm_flavor, :bootstrap_sequence, :services]
     key_validation(required_keys, opts)
     (services = opts[:services]).any? && services.all? {|s| s.service?}
+    opts[:name] = name
     @http_pools[name] = opts
   end
 
@@ -146,6 +136,7 @@ class CloudFormation
     required_keys = [:count, :image, :vm_flavor, :bootstrap_sequence, :services]
     key_validation(required_keys, opts)
     (services = opts[:services]).any? && services.all? {|s| s.service?}
+    opts[:name] = name
     @tcp_pools[name] = opts
   end
 
@@ -158,6 +149,7 @@ class CloudFormation
     end
     required_keys = [:count, :image, :vm_flavor, :bootstrap_sequence]
     key_validation(required_keys, opts)
+    opts[:name] = name
     @boxes[name] = opts
   end
 
