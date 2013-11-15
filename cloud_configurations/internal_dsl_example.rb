@@ -1,3 +1,4 @@
+require 'rubygems'
 require 'oat'
 
 config = Oat::formation do
