@@ -41,7 +41,7 @@ class ServerComponent
   def bootstrap_urls
     @bootstrap_urls ||= @pool_data[:bootstrap_sequence].map(&:git_url).flatten
   end
-  def flavor_name; @flavor_name ||= @pool_data[:flavor]; end
+  def flavor_name; @flavor_name ||= @pool_data[:vm_flavor]; end
 
   ##
   # Make sure everything is in place for the bootstrapping process to begin. We can't do much

@@ -32,19 +32,91 @@ class CloudFormation
   end
 
   ##
+  # It's better to break up the +run+ method into multiple methods to make dependencies
+  # explicit via parameters.
+
+  def provision_servers(all_servers)
+    puts "Running validators and forking provisioning processes."
+    # make sure the servers are up and running
+    all_servers.map do |component|
+      fork {
+        server_name = component.server_name
+        $stdout.reopen("#{server_name}.out", "a")
+        $stderr.reopen("#{server_name}.err", "a")
+        component.provision
+        puts "#{server_name} provisioned."
+      }
+    end.each {|pid| Process.wait pid}
+  end
+
+  ##
+  # Another stage in the +run+ method pipeline.
+
+  def test_ssh_connections(all_servers)
+    puts "Making sure all components were provisioned by OpenStack."
+    all_servers.each do |c|
+      begin
+        c.get_server; c.test_ssh_connection
+      rescue Exception => e
+        puts "Something went wrong with #{c.server_name}. Check the logs and re-run vm-cloud-formation."
+        puts e
+        exit 1
+      end
+    end
+  end
+
+  ##
+  # This returns the PID for the process that is configuring the load
+  def etc_host_entry_config(pools, boxes, lb)
+    puts "Appending .vip entries to /etc/hosts in forked processes."
+    pool_names = pools.http_pool_mappings.merge(pools.tcp_pool_mappings).keys
+    puts "Pools: #{pool_names.join(", ")}."
+    lb.upload_etc_hosts_entries(pools.all_components + boxes, pool_names)
+    # load balancer bootstrapping should happen independently of all the other boxes
+    lb_bootstrap_pid = fork {
+      server_name = lb.server_name
+      $stdout.reopen("#{server_name}.out", "a")
+      $stderr.reopen("#{server_name}.err", "a")
+      lb.bootstrap
+      puts "#{server_name} bootstrapped."
+      puts "Uploading load balancer config and restarting."
+      lb.upload_config(pools.generate_haproxy_config)
+    }
+  end
+
+  ##
   # Do some validation and start making the API calls for setting everything up.
 
   def run
     # TODO: Actually do this
     # PoolServers, HAProxy, BoxServers
-    require 'pry'; binding.pry
     pool_servers = PoolServers.new(self, OpenStackConnection.new(ENV))
     lb = HAProxyServer.new(self, OpenStackConnection.new(ENV))
-    # TODO: Migrate box server compiler stuff as well
     box_servers = BoxServers.new(self, OpenStackConnection.new(ENV))
+    all_servers = pool_servers.all_components + [lb.load_balancer] + box_servers.boxes
+
+    provision_servers(all_servers)
+    test_ssh_connections(all_servers)
+    lb_bootstrap_pid = etc_host_entry_config(pool_servers, box_servers.boxes, lb.load_balancer)
+    
+    (pool_servers.all_components + box_servers.boxes).map do |component|
+      fork {
+        server_name = component.server_name
+        $stdout.reopen("#{server_name}.out", "a")
+        $stderr.reopen("#{server_name}.err", "a")
+        component.bootstrap
+        puts "#{server_name} bootstrapped."
+      }
+    end.each {|pid| Process.wait pid}
+
+    Process.wait lb_bootstrap_pid
+    puts "DONE!"
   end
 
-  attr_reader :defaults, :http_pools, :tcp_pools
+  ##
+  # Readers for common components.
+
+  attr_reader :http_pools, :tcp_pools, :boxes
 
   ##
   # Should be pretty self-explanatory. Just initialize some variables to store
@@ -113,6 +185,13 @@ class CloudFormation
     key_validation(required_keys, opts)
     opts[:name] = name
     @load_balancer = opts
+  end
+
+  ##
+  # Need a getter for load balancer.
+
+  def get_load_balancer
+    @load_balancer
   end
 
   ##

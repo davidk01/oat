@@ -9,7 +9,7 @@ config = Oat::formation do
 
   defaults :ssh_key_name => 'milo-qa',
    :pem_file => '/openstratus-keys/milo-qa.pem',
-   :security_groups => ['defaults']
+   :security_groups => ['default']
 
   load_balancer 'lb', :count => 1, :image => ubuntu, :vm_flavor => 'small', 
    :bootstrap_sequence => [

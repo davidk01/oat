@@ -15,7 +15,7 @@ class HAProxyServer
   # This is called in the constructor and shouldn't be called from anywhere else.
 
   def initialize_load_balancer
-    component_def = @config.load_balancer
+    component_def = @config.get_load_balancer
     defaults_hash = @config.defaults_hash
     @load_balancer = HAProxyLoadBalancerComponent.new(component_def[:name],
      defaults_hash[:ssh_key_name], defaults_hash[:pem_file],

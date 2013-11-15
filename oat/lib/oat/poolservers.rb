@@ -4,7 +4,7 @@ class PoolServers
 
     def to_haproxy_data
       pool_name = pool_definition[:name]
-      pool_definition.services.map do |service_def|
+      pool_definition[:services].map do |service_def|
         port = service_def.service_port
         healthcheck_endpoint = service_def.healthcheck_endpoint
         healthcheck_port = service_def.healthcheck_port
@@ -29,7 +29,7 @@ class PoolServers
 
     def to_haproxy_data
       pool_name = pool_definition[:name]
-      pool_definition.services.map do |service_def|
+      pool_definition[:services].map do |service_def|
         service_port = service_def.service_port
         healthcheck_endpoint = service_def.healthcheck_endpoint
         healthcheck_port = service_def.healthcheck_port

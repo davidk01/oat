@@ -20,9 +20,9 @@ class BoxServers
       @boxes = []
     else
       defaults_hash = @config.defaults_hash
-      @boxes = @config.boxes.map do |box_def|
+      @boxes = @config.boxes.map do |name, box_def|
         box_components = (1..box_def[:count]).map do |vm_index|
-          box_component = ServerComponent.new("#{box_def[:name]}-#{vm_index}",
+          box_component = ServerComponent.new("#{name}-#{vm_index}",
            defaults_hash[:ssh_key_name], defaults_hash[:pem_file],
            @os_connector, defaults_hash[:security_groups], box_def)
         end
