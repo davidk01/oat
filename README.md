@@ -37,6 +37,3 @@ Example
 ```bash
 ruby cloud_formation/internal_dsl_example.rb
 ```
-The above command will set up part of the Milo infrastructure for the account that is specified in the rc file
-that you downloaded and sourced. This will only work if you have enough resources. In general, take a look
-at `cloud_formation` for examples of cloud formation  yaml files.
