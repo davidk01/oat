@@ -1,7 +1,7 @@
-openstratus-api-toolkit
-=======================
+oat (OpenStack API Toolkit)
+===========================
 
-Tool for taking declarative descriptions of cloud formations and converting them to API calls to OpenStratus (OpenStack) that will provision and bootstrap the described cloud formation.
+Tool for taking declarative descriptions of cloud formations and converting them to API calls to OpenStack that will provision and bootstrap the described cloud formation.
 
 
 Requirements
@@ -35,7 +35,7 @@ type in your corp password.
 Example
 =======
 ```bash
-ruby vm-cloud-formation -f cloud_formation/qa-cloud-formation.yaml
+ruby cloud_formation/internal_dsl_example.rb
 ```
 The above command will set up part of the Milo infrastructure for the account that is specified in the rc file
 that you downloaded and sourced. This will only work if you have enough resources. In general, take a look
